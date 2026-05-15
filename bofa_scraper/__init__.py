@@ -1,6 +1,7 @@
 from typing import List
 
 from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
 
 from .util import Log, Timeout
@@ -50,20 +51,49 @@ class BofAScraper:
 
 	def login(self):
 		Log.log('Logging in...')
-		self.driver.find_element(By.ID, "onlineId1").send_keys(self.creds["id"])
-		self.driver.find_element(By.ID, "passcode1").send_keys(self.creds["passcode"])
-		self.driver.find_element(By.ID, "signIn").click()
+		self.driver.find_element(By.ID, "oid").send_keys(self.creds["id"])
+		self.driver.find_element(By.ID, "pass").send_keys(self.creds["passcode"])
+		self.driver.find_element(By.ID, "secure-signin-submit").click()
 		Timeout.timeout()
 
-		# 2fa
-		if self.driver.current_url == "https://secure.bankofamerica.com/login/sign-in/signOnSuccessRedirect.go":
+		# Detect 2FA by element presence rather than exact URL, since the
+		# redirect URL has changed over time.
+		try:
+			self.driver.find_element(By.ID, "btnARContinue")
+			needs_2fa = True
+		except NoSuchElementException:
+			url = self.driver.current_url
+			needs_2fa = (
+				"signOnSuccessRedirect" in url
+				or "auth/signon" in url
+			)
+
+		if needs_2fa:
 			Log.log('2fa required')
-			self.driver.find_element(By.ID, "btnARContinue").click()
+			try:
+				self.driver.find_element(By.ID, "btnARContinue").click()
+				Timeout.timeout()
+			except NoSuchElementException:
+				pass
 			print("input 2fa code: ")
-			Timeout.timeout()
-			self.driver.find_element(By.CLASS_NAME, "authcode").send_keys(input())
-			self.driver.find_element(By.ID, "yes-recognize").click()
-			self.driver.find_element(By.ID, "continue-auth-number").click()
+			code = input()
+			for by, sel in [
+				(By.CLASS_NAME, "authcode"),
+				(By.ID, "authenticationCode"),
+			]:
+				try:
+					self.driver.find_element(by, sel).send_keys(code)
+					break
+				except NoSuchElementException:
+					pass
+			try:
+				self.driver.find_element(By.ID, "yes-recognize").click()
+			except NoSuchElementException:
+				pass
+			try:
+				self.driver.find_element(By.ID, "continue-auth-number").click()
+			except NoSuchElementException:
+				pass
 			Timeout.timeout()
 
 		if self.driver.current_url.startswith('https://secure.bankofamerica.com/myaccounts/'):
