@@ -99,6 +99,33 @@ class BofAScraper:
 		if self.driver.current_url.startswith('https://secure.bankofamerica.com/myaccounts/'):
 			Log.log('Sign in success!')
 			self.logged_in = True
+			self._dismiss_dialog()
 		else:
 			Log.log('Sign in failed')
 			self.logged_in = False
+
+	def _dismiss_dialog(self) -> bool:
+		"""
+		Dismiss any modal dialog on the current page.
+
+		Tries by id first (most reliable), then by button text. Called after
+		login so that overview-page dialogs don't stale account element refs.
+		"""
+		xpaths = [
+			'//*[@id="gotItButton"]',
+			'//button[normalize-space()="Got it"]',
+			'//button[normalize-space()="Got it!"]',
+			'//button[normalize-space()="OK"]',
+			'//button[normalize-space()="Ok"]',
+			'//button[normalize-space()="Continue"]',
+			'//a[normalize-space()="OK"]',
+			'//a[normalize-space()="Ok"]',
+		]
+		for xpath in xpaths:
+			for el in self.driver.find_elements(By.XPATH, xpath):
+				if el.is_displayed():
+					Log.log('Dismissing dialog via: %s' % xpath)
+					el.click()
+					Timeout.timeout()
+					return True
+		return False

@@ -7,7 +7,8 @@ class Transaction:
 	date: str
 	desc: str
 	type: str
-	uuid: str
+	txn_hash: str
+	running_balance: float
 
 class Account:
 	__name: str
