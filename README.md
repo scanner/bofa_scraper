@@ -59,11 +59,14 @@ accounts[0].get_balance()	# See account balance
 # Dictionary populated with transactions
 transactions = accounts[0].get_transactions()
 # transaction info
-transactions[0].amount
-transactions[0].date
-transactions[0].desc
-transactions[0].type
-transactions[0].uuid
+transactions[0].amount          # float; negative for debits
+transactions[0].date            # str; "MM/DD/YYYY", or "Processing" for pending transactions
+transactions[0].desc            # str
+transactions[0].type            # str; e.g. "Virtual Card", "Debit Card", "Deposit"
+transactions[0].running_balance # float; available balance after this transaction
+transactions[0].txn_hash        # str; BofA's internal transaction identifier.
+                                #      Not stable across scrape sessions -- do not
+                                #      use as a persistent unique key.
 ```
 
 Clean up
