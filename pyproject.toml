@@ -26,6 +26,7 @@ Homepage = "https://github.com/Wllew4/bofa_scraper"
 dev = [
     "mypy",
     "pre-commit",
+    "rich",
     "ruff",
 ]
 
