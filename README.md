@@ -17,61 +17,75 @@ of fetching any data that could not be collected by a human in a web browser.
 ```
 pip install bofa_scraper
 ```
-2. Install Firefox
-3. Download the [GeckoDriver](https://github.com/mozilla/geckodriver/releases) binary, and add to your PATH.
+2. Install Firefox. Selenium Manager automatically downloads the matching
+   GeckoDriver -- no manual driver installation is required.
 
 
 # Usage
-**NOTE: API has been reworked since v0**
 
-Import and initialize
-```python
-from bofa_scraper import BofAScraper # Import the package
+## Example script
 
-scraper = BofAScraper(
-	'YOUR_BankOfAmerica_ONLINE_ID',
-	'YOUR_BankOfAmerica_PASSCODE',
-	timeout_duration=5, # Timeout to allow for page loads, defaults to 5s
-	headless=True,		# Optional, defaults to True
-	verbose=True,		# Optional, defaults to True
-)
+[`examples/account_overview.py`](examples/account_overview.py) shows the
+complete lifecycle: login, fetching accounts, scraping transactions, and
+printing a summary with [Rich](https://github.com/Texel/rich).
 
-scraper.login() # Log in
+```
+uv run ./examples/account_overview.py
 ```
 
-Start scraping
-```python
-# Fetch a list of accounts
-# Transaction data is not automatically populated
-accounts = scraper.get_accounts()
-accounts[0].get_name()		# See account name
-accounts[0].get_balance()	# See account balance
+## API
 
-# Start a scraping session for an account
-(
-	scraper.open_account(accounts[0])	# Start session
-		.scrape_transactions()			# Scrape visible transactions
-		.load_more_transactions()		# Load more transactions
-		.scrape_transactions()			# Scrape new and re-scrape old transactions
-		.close()						# Close session
+Initialize and log in:
+```python
+from bofa_scraper import BofAScraper
+
+scraper = BofAScraper(
+    'YOUR_BankOfAmerica_ONLINE_ID',
+    'YOUR_BankOfAmerica_PASSCODE',
+    timeout_duration=5,  # seconds to wait for page loads, defaults to 5
+    headless=True,       # run browser invisibly, defaults to True
+    verbose=True,        # log progress to stdout, defaults to True
 )
 
-# Dictionary populated with transactions
+scraper.login()  # handles 2FA interactively if required
+```
+
+Fetch accounts and scrape transactions:
+```python
+# get_accounts() returns one Account per tile on the overview page.
+# Balance is pre-populated; transactions are not fetched until you open
+# a scraping session.
+accounts = scraper.get_accounts()
+accounts[0].get_name()     # str; account display name
+accounts[0].get_balance()  # float; current balance
+
+# open_account() opens a new browser tab for the account's detail page.
+# scrape_transactions() reads all visible rows and stores them on the
+# Account object.  Call load_more_transactions() first to load older rows.
+# close() closes the detail tab and returns focus to the overview tab.
+(
+    scraper.open_account(accounts[0])
+        .scrape_transactions()
+        .load_more_transactions()   # click "View more transactions"
+        .scrape_transactions()      # re-scrape to include newly loaded rows
+        .close()
+)
+
+# Transactions are stored on the Account, most recent first.
 transactions = accounts[0].get_transactions()
-# transaction info
 transactions[0].amount          # float; negative for debits
-transactions[0].date            # str; "MM/DD/YYYY", or "Processing" for pending transactions
+transactions[0].date            # str; "MM/DD/YYYY", or "Processing" for pending
 transactions[0].desc            # str
 transactions[0].type            # str; e.g. "Virtual Card", "Debit Card", "Deposit"
 transactions[0].running_balance # float; available balance after this transaction
 transactions[0].txn_hash        # str; BofA's internal transaction identifier.
-                                #      Not stable across scrape sessions -- do not
-                                #      use as a persistent unique key.
+                                #      Not stable across sessions -- do not use
+                                #      as a persistent unique key.
 ```
 
-Clean up
+Clean up:
 ```python
-scraper.quit()
+scraper.quit()  # closes the browser process
 ```
 
 

@@ -39,35 +39,35 @@ def main() -> None:
     This function demonstrates the complete lifecycle of a bofa_scraper
     session:
 
-    1.  **Construct BofAScraper** — launches a Firefox WebDriver, navigates
+    1.  **Construct BofAScraper** -- launches a Firefox WebDriver, navigates
         to bankofamerica.com, and waits for the page to load.  If
         ``headless=True`` (the default) the browser runs invisibly in the
-        background.  Always call ``scraper.quit()`` when finished — it
+        background.  Always call ``scraper.quit()`` when finished -- it
         closes the browser process.  Wrapping everything in a try/finally
         block guarantees this even when an exception is raised mid-run.
 
-    2.  **Call scraper.login()** — types the credentials into the sign-in
+    2.  **Call scraper.login()** -- types the credentials into the sign-in
         form and submits it.  If BofA requires a one-time passcode (2FA),
         the library pauses and prints "input 2fa code:" to stdout; the user
         types the code and presses Enter.  After a successful login,
         ``scraper.logged_in`` is True and the driver is on the "My Accounts"
         overview page.
 
-    3.  **Call scraper.get_accounts()** — scrapes the overview page for
+    3.  **Call scraper.get_accounts()** -- scrapes the overview page for
         account tiles and returns a list of ``Account`` objects.  Each
         ``Account`` holds the account name, current balance, and a reference
         to the underlying Selenium WebElement.  The WebElement reference is
         needed later to open the account's detail page, so the accounts must
         be collected *before* navigating away from the overview page.
 
-    4.  **Call scraper.open_account(account)** — opens a new browser tab
+    4.  **Call scraper.open_account(account)** -- opens a new browser tab
         and navigates it to that account's transaction detail page, returning
         a ``ScrapeSession``.  The original overview tab remains open in the
         background, which keeps the account WebElement references valid for
         other accounts.  Call ``session.close()`` to close the detail tab and
         return focus to the overview tab.
 
-    5.  **Call session.scrape_transactions()** — walks all visible
+    5.  **Call session.scrape_transactions()** -- walks all visible
         transaction rows on the detail page and stores them on the
         ``Account`` object via ``account.set_transactions()``.  Transactions
         appear in the order BofA renders them (most recent first).  If you
@@ -75,7 +75,7 @@ def main() -> None:
         scraping; this clicks BofA's "View more transactions" button and
         waits for the page to reload.
 
-    6.  **Call session.close()** — closes the detail tab and switches the
+    6.  **Call session.close()** -- closes the detail tab and switches the
         driver back to the overview tab so the next account can be opened.
         This must be called even if scraping fails, hence the try/finally.
     """
