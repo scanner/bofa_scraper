@@ -3,3 +3,7 @@
 /build/
 /*.egg-info
 test.py
+.venv/
+.mypy_cache/
+.ruff_cache/
+.ruff_formatted
