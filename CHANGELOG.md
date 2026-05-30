@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-05-30
+
+### Added
+
+- `Transaction.has_details` flag -- `True` for posted transactions that expose a View/Edit link; `False` for pending/processing rows
+- `ScrapeSession.get_transaction_details(txn)` -- opens the View/Edit dialog for a single posted transaction and returns its fields as a `dict[str, str]`
+- `ScrapeSession.get_transaction_detail_html(txn)` -- returns the raw `outerHTML` of the dialog for DOM inspection and parser debugging
+- `TRANSACTION_DETAIL_FIELDS` -- exported constant; ordered `list[tuple[str, str]]` of `(key, label)` pairs for all known detail fields
+- Docstrings on all public classes and methods across the library
+
+### Changed
+
+- `examples/account_overview.py` now fetches and displays transaction details for each of the ten most recent posted transactions per account
+
 ## [1.0.4] - 2026-05-17
 
 ### Added

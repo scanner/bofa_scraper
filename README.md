@@ -26,8 +26,8 @@ pip install bofa_scraper
 ## Example script
 
 [`examples/account_overview.py`](examples/account_overview.py) shows the
-complete lifecycle: login, fetching accounts, scraping transactions, and
-printing a summary with [Rich](https://github.com/Texel/rich).
+complete lifecycle: login, fetching accounts, scraping transactions, fetching
+transaction details, and printing a summary with [Rich](https://github.com/Texel/rich).
 
 ```
 uv run ./examples/account_overview.py
@@ -81,6 +81,80 @@ transactions[0].running_balance # float; available balance after this transactio
 transactions[0].txn_hash        # str; BofA's internal transaction identifier.
                                 #      Not stable across sessions -- do not use
                                 #      as a persistent unique key.
+transactions[0].has_details     # bool; True when a View/Edit link is present.
+                                #      Only posted transactions have details;
+                                #      pending/processing rows do not.
+```
+
+## Transaction details
+
+Posted transactions expose a **View/Edit** dialog in the BofA UI. Calling
+`get_transaction_details()` opens that dialog, extracts the fields, and closes
+it. Only transactions where `has_details` is `True` support this call.
+
+Because each call opens and closes a browser dialog, fetching details for many
+transactions in a row adds real wall-clock time. Fetch only the details you
+need -- for example, transactions that have appeared since your last run.
+
+```python
+session = scraper.open_account(accounts[0])
+try:
+    session.scrape_transactions()
+
+    for txn in accounts[0].get_transactions():
+        if not txn.has_details:
+            continue  # pending/processing rows have no View/Edit link
+
+        details = session.get_transaction_details(txn)  # dict[str, str] | None
+        if details:
+            print(details)
+finally:
+    session.close()
+```
+
+`get_transaction_details()` returns a `dict[str, str]` (or `None` if the
+dialog cannot be opened). The canonical ordered list of known fields is
+exported as `TRANSACTION_DETAIL_FIELDS` -- a `list[tuple[str, str]]` of
+`(key, label)` pairs in the order they appear in the BofA dialog:
+
+```python
+from bofa_scraper import TRANSACTION_DETAIL_FIELDS
+
+for key, label in TRANSACTION_DETAIL_FIELDS:
+    print(f"{key}: {details.get(key, '(not present)')}")
+```
+
+Fields returned by `get_transaction_details()`:
+
+| Key | Example value | Notes |
+|-----|---------------|-------|
+| `posting_date` | `'May 28, 2026'` | |
+| `description` | `'Trader Joes'` | User-editable label |
+| `type` | `'Virtual Card'` | |
+| `status` | `'Cleared'` | |
+| `amount` | `'-$14.70'` | Raw string as shown in dialog |
+| `raw_description` | `'TRADER JOE S #069 05/26 MOBILE PURCHASE MENLO PARK CA'` | BofA's original merchant string |
+| `merchant_category` | `'Grocery Stores and Supermarkets'` | |
+| `merchant_category_code` | `'5411'` | ISO 18245 MCC |
+| `merchant_information` | `'MENLO PARK, CA'` | |
+| `merchant_name` | `'TRADER JOES'` | User-editable |
+| `transaction_category` | `'Groceries : Groceries'` | User-editable |
+| `virtual_card_number` | `'XXXX-XXXX-XXXX-1439'` | Virtual Card transactions only |
+| `phone_number` | `'XXX-XXX-1439'` | Masked; not always present |
+
+Fields not present in a particular transaction's dialog are omitted from the
+returned dict. Always use `dict.get()` rather than direct indexing.
+
+### Raw HTML probe
+
+If you need to inspect BofA's actual dialog DOM (e.g. to diagnose a missing
+field or verify the parser is working correctly), use
+`get_transaction_detail_html()` instead. It opens the same dialog and returns
+its `outerHTML` as a string without attempting to parse it:
+
+```python
+html = session.get_transaction_detail_html(txn)
+print(html)
 ```
 
 Clean up:

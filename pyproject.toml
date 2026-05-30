@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bofa_scraper"
-version = "1.0.4"
+version = "1.1.0"
 description = "Simple Python web-scraper to get personal transaction data from BofA account."
 readme = "README.md"
 requires-python = ">=3.13"
