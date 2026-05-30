@@ -124,21 +124,21 @@ for key, label in TRANSACTION_DETAIL_FIELDS:
 
 Fields returned by `get_transaction_details()`:
 
-| Key | Example value | Notes |
-|-----|---------------|-------|
-| `posting_date` | `'May 28, 2026'` | |
-| `description` | `'Trader Joes'` | User-editable label |
-| `type` | `'Virtual Card'` | |
-| `status` | `'Cleared'` | |
-| `amount` | `'-$14.70'` | Raw string as shown in dialog |
-| `raw_description` | `'TRADER JOE S #069 05/26 MOBILE PURCHASE MENLO PARK CA'` | BofA's original merchant string |
-| `merchant_category` | `'Grocery Stores and Supermarkets'` | |
-| `merchant_category_code` | `'5411'` | ISO 18245 MCC |
-| `merchant_information` | `'MENLO PARK, CA'` | |
-| `merchant_name` | `'TRADER JOES'` | User-editable |
-| `transaction_category` | `'Groceries : Groceries'` | User-editable |
-| `virtual_card_number` | `'XXXX-XXXX-XXXX-1439'` | Virtual Card transactions only |
-| `phone_number` | `'XXX-XXX-1439'` | Masked; not always present |
+| Key                      | Example value                                          | Notes                           |
+|--------------------------|--------------------------------------------------------|---------------------------------|
+| `posting_date`           | `'May 28, 2026'`                                       |                                 |
+| `description`            | `'Corner Market'`                                      | User-editable label             |
+| `type`                   | `'Virtual Card'`                                       |                                 |
+| `status`                 | `'Cleared'`                                            |                                 |
+| `amount`                 | `'-$14.70'`                                            | Raw string as shown in dialog   |
+| `raw_description`        | `'CORNER MARKET 05/26 MOBILE PURCHASE SPRINGFIELD IL'` | BofA's original merchant string |
+| `merchant_category`      | `'Grocery Stores and Supermarkets'`                    |                                 |
+| `merchant_category_code` | `'5411'`                                               | ISO 18245 MCC                   |
+| `merchant_information`   | `'SPRINGFIELD, IL'`                                    |                                 |
+| `merchant_name`          | `'CORNER MARKET'`                                      | User-editable                   |
+| `transaction_category`   | `'Groceries : Groceries'`                              | User-editable                   |
+| `virtual_card_number`    | `'XXXX-XXXX-XXXX-1439'`                                | Virtual Card transactions only  |
+| `phone_number`           | `'XXX-XXX-1439'`                                       | Masked; not always present      |
 
 Fields not present in a particular transaction's dialog are omitted from the
 returned dict. Always use `dict.get()` rather than direct indexing.
