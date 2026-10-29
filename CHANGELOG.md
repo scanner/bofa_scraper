@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-29
+
 ### Added
 
 - `tools/dump_pages.py` and `tools/digest_page.py` to capture and summarize rendered BofA pages when the site changes
