@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tools/dump_pages.py` and `tools/digest_page.py` to capture and summarize rendered BofA pages when the site changes
+
+### Fixed
+
+- Sign-in is detected again after BofA moved the post-login page to `/accounts-home/`
+- `get_accounts()` reads the redesigned accounts overview, waiting for the account list to render
+- The transaction details dialog lookup and close button are scoped to the transaction dialog, not other dialogs on the page
+
 ## [1.1.0] - 2026-05-30
 
 ### Added

@@ -7,7 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 
-from .account import Account, Transaction
+from .account import ACCOUNT_LINK_CSS, Account, Transaction
 from .util import Timeout
 
 # Maps lowercased label text from the Transaction details dialog to the
@@ -27,6 +27,9 @@ _LABEL_TO_KEY: dict[str, str] = {
     "virtual card number": "virtual_card_number",
     "phone number": "phone_number",
 }
+
+# The dialog that holds the transaction details content.
+_TXN_DIALOG_XPATH = '//*[@role="dialog"][.//*[@id="transaction-details-modal"]]'
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +70,7 @@ class ScrapeSession:
         )
         url = (
             self.account.get_element()
-            .find_element(By.TAG_NAME, "a")
+            .find_element(By.CSS_SELECTOR, ACCOUNT_LINK_CSS)
             .get_attribute("href")
         )
         if url is None:
@@ -357,16 +360,19 @@ class ScrapeSession:
         """
         Locate the visible transaction details modal container in the DOM.
 
-        Tries role='dialog' first (most reliable), then searches for a heading
-        whose text contains 'Transaction details' and walks up to its nearest
-        modal-like ancestor.
+        Tries the role='dialog' element that holds the transaction details
+        content first, then any visible role='dialog', then a heading whose
+        text contains 'Transaction details', walking up to its nearest
+        modal-like ancestor. The page holds other dialogs too, such as the
+        session-timeout warning.
 
         Returns:
             The dialog WebElement, or None if it cannot be found.
         """
-        for el in self.driver.find_elements(By.CSS_SELECTOR, '[role="dialog"]'):
-            if el.is_displayed():
-                return el
+        for xpath in (_TXN_DIALOG_XPATH, '//*[@role="dialog"]'):
+            for el in self.driver.find_elements(By.XPATH, xpath):
+                if el.is_displayed():
+                    return el
 
         # Heading-based fallback for pages that omit role="dialog".
         for tag in ("h2", "h3", "h4"):
@@ -396,6 +402,7 @@ class ScrapeSession:
         Escape. Logs a warning if no button is found and Escape is used.
         """
         xpaths = [
+            f'{_TXN_DIALOG_XPATH}//button[contains(@class,"spa-ui-layer-close")]',
             '//button[@aria-label="Close"]',
             '//button[@aria-label="close"]',
             '//button[contains(@class,"close")]',

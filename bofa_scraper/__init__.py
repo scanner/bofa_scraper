@@ -1,15 +1,26 @@
 import logging
+from urllib.parse import urlsplit
 
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
+from .account import ACCOUNT_ITEM_CSS, Account
 from .account import TRANSACTION_DETAIL_FIELDS as TRANSACTION_DETAIL_FIELDS
-from .account import Account
 from .scrape_session import ScrapeSession
 from .util import Timeout
 
 logger = logging.getLogger(__name__)
+
+# Paths BofA lands on after a successful sign-in: the accounts overview
+# ('/accounts-home/' since late 2026, '/myaccounts/' before that).
+_SIGNED_IN_HOST = "secure.bankofamerica.com"
+_SIGNED_IN_PATHS = ("/accounts-home/", "/myaccounts/")
+
+# Seconds to wait for the overview's account list to render.
+_ACCOUNTS_WAIT = 20
 
 
 ########################################################################
@@ -120,15 +131,29 @@ class BofAScraper:
         Each Account has its name and balance pre-populated. Transactions are
         not fetched until a ScrapeSession is opened and scrape_transactions()
         is called. Returns an empty list if the scraper is not logged in.
+
+        The overview renders its account list after the page loads, so this
+        waits for the first account tile before reading them.
         """
         logger.info("Fetching accounts...")
         out = []
         if not self.logged_in:
             logger.info("Not signed in")
         else:
+            try:
+                WebDriverWait(self.driver, _ACCOUNTS_WAIT).until(
+                    EC.presence_of_element_located(
+                        (By.CSS_SELECTOR, ACCOUNT_ITEM_CSS)
+                    )
+                )
+            except TimeoutException:
+                logger.warning(
+                    "No account tiles appeared within %d seconds",
+                    _ACCOUNTS_WAIT,
+                )
             i = 0
             for account_element in self.driver.find_elements(
-                By.CLASS_NAME, "AccountItem"
+                By.CSS_SELECTOR, ACCOUNT_ITEM_CSS
             ):
                 account = Account(account_element)
                 logger.info("Found account: %s", account.get_name())
@@ -196,8 +221,9 @@ class BofAScraper:
                 pass
             Timeout.timeout()
 
-        if self.driver.current_url.startswith(
-            "https://secure.bankofamerica.com/myaccounts/"
+        landing = urlsplit(self.driver.current_url)
+        if landing.netloc == _SIGNED_IN_HOST and landing.path.startswith(
+            _SIGNED_IN_PATHS
         ):
             logger.info("Sign in success!")
             self.logged_in = True
