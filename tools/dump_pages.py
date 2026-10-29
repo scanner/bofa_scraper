@@ -47,10 +47,12 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
+from selenium.webdriver.support import expected_conditions as EC
 
 # Project imports
 from bofa_scraper import BofAScraper
-from bofa_scraper.util import Timeout
+from bofa_scraper.account import ACCOUNT_ITEM_CSS
+from bofa_scraper.util import Timeout, wait_until
 from digest_page import digest, digest_path
 
 logger = logging.getLogger("dump_pages")
@@ -251,6 +253,12 @@ def run_auto(driver: WebDriver, cap: Capturer, max_accounts: int) -> None:
         cap:          Where captures go.
         max_accounts: Number of accounts whose activity pages are captured.
     """
+    # The overview renders its account tiles after the page loads.
+    wait_until(
+        driver,
+        EC.presence_of_element_located((By.CSS_SELECTOR, ACCOUNT_ITEM_CSS)),
+        "the account tiles",
+    )
     cap.capture("after-login")
 
     cap.step(

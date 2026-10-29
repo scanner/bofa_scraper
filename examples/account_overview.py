@@ -160,7 +160,10 @@ def main() -> None:
 
             # --- display ---
 
-            console.rule(f"[bold cyan]{account.get_name()}[/bold cyan]")
+            console.rule(
+                f"[bold cyan]{account.get_name()} "
+                f"...{account.get_last_four() or '????'}[/bold cyan]"
+            )
             console.print(
                 f"  Balance: [bold green]${account.get_balance():,.2f}[/bold green]"
             )

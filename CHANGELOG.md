@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** `Account.get_name()` is the account's nickname only and holds no part of the account number; the redesigned overview page no longer shows account numbers. Use `get_last_four()` after opening the account
+
+### Added
+
+- `ScrapeSession.get_last_four()` and `Account.get_last_four()` -- the last four digits of the account number, read from the account's page when `open_account()` opens it
+- `purchaser` and `online_purchase` transaction detail fields, now shown in some BofA dialogs
+- `BofAScraper` reloads the homepage up to three times when BofA shows a promotions page with no sign-in form
+
+### Fixed
+
+- `login()` raises `RuntimeError` naming the page it is on when no sign-in form can be found, instead of a Selenium `NoSuchElementException`
+- `tools/dump_pages.py` waits for the account tiles before capturing the overview
+
 ## [1.2.0] - 2026-10-29
 
 ### Added

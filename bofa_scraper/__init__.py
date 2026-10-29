@@ -13,6 +13,10 @@ from .util import Timeout, is_signed_in_url, wait_until
 
 logger = logging.getLogger(__name__)
 
+_HOMEPAGE_URL = "https://www.bankofamerica.com/"
+# How many times to load the homepage looking for the sign-in form.
+_SIGN_IN_ATTEMPTS = 3
+
 # Elements that show the sign-in form was answered with a 2FA challenge.
 _2FA_LOCATORS = [
     (By.ID, "btnARContinue"),
@@ -106,13 +110,37 @@ class BofAScraper:
             options.add_argument("--headless")
         self.driver = webdriver.Firefox(options=options)
         self.driver.set_window_size(1280, 972)
-        self.driver.get("https://www.bankofamerica.com/")
-        wait_until(
-            self.driver,
-            EC.presence_of_element_located((By.ID, "oid")),
-            "the sign-in form",
-        )
+        self._open_sign_in_page()
         logger.info("Initialized web driver")
+
+    ####################################################################
+    #
+    def _open_sign_in_page(self) -> bool:
+        """
+        Load the BofA homepage until it shows the sign-in form.
+
+        BofA sometimes sends a new visitor to a promotions page with no
+        sign-in form instead of the homepage, so the homepage is loaded up
+        to _SIGN_IN_ATTEMPTS times.
+
+        Returns:
+            True if the sign-in form is on the page.
+        """
+        for attempt in range(1, _SIGN_IN_ATTEMPTS + 1):
+            self.driver.get(_HOMEPAGE_URL)
+            if wait_until(
+                self.driver,
+                EC.presence_of_element_located((By.ID, "oid")),
+                "the sign-in form",
+            ):
+                return True
+            logger.info(
+                "No sign-in form on %s (attempt %d of %d)",
+                self.driver.current_url,
+                attempt,
+                _SIGN_IN_ATTEMPTS,
+            )
+        return False
 
     ####################################################################
     #
@@ -188,8 +216,19 @@ class BofAScraper:
 
         After a successful login the driver is on the 'My Accounts' overview
         page. Call get_accounts() next to retrieve account tiles.
+
+        Raises:
+            RuntimeError: If no sign-in form can be found on the homepage.
         """
         logger.info("Logging in...")
+        if (
+            not self.driver.find_elements(By.ID, "oid")
+            and not self._open_sign_in_page()
+        ):
+            raise RuntimeError(
+                "No sign-in form found; the browser is on "
+                f"{self.driver.current_url}"
+            )
         self.driver.find_element(By.ID, "oid").send_keys(self.creds["id"])
         self.driver.find_element(By.ID, "pass").send_keys(
             self.creds["passcode"]

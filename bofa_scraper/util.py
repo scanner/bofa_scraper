@@ -1,5 +1,6 @@
 import logging
 import random
+import re
 import time
 from collections.abc import Callable
 from urllib.parse import urlsplit
@@ -31,6 +32,22 @@ def parse_money(text: str) -> float:
         ValueError: If the text is not an amount.
     """
     return float(text.strip().replace("$", "").replace(",", ""))
+
+
+def last_four_from_masked(text: str) -> str | None:
+    """
+    Return the last four digits of a masked account number.
+
+    Args:
+        text: The number as shown on the account's page, such as
+              'xxxxxxxx1234'.
+
+    Returns:
+        The last four digits, or None if the text does not end in four
+        digits.
+    """
+    m = re.search(r"(\d{4})\s*$", text)
+    return m.group(1) if m else None
 
 
 def hash_from_classes(class_attr: str) -> str:

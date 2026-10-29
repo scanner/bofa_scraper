@@ -11,6 +11,9 @@ ACCOUNT_LINK_CSS = "a.account-link"
 # The balance is the last span; an earlier visually hidden span holds the
 # label 'Current Balance'.
 ACCOUNT_BALANCE_CSS = "div.total > span:last-of-type"
+# The masked account number on the account's activity page, such as
+# 'xxxxxxxx1234'. The overview page does not show the account number.
+ACCOUNT_NUMBER_CSS = "#masked-account-number"
 
 # Ordered list of (key, label) pairs for all fields that may appear in the
 # dict returned by ScrapeSession.get_transaction_details(). The order matches
@@ -38,6 +41,8 @@ TRANSACTION_DETAIL_FIELDS: list[tuple[str, str]] = [
     ("transaction_category", "Transaction category"),
     ("virtual_card_number", "Virtual card number"),
     ("phone_number", "Phone number"),
+    ("purchaser", "Purchaser"),
+    ("online_purchase", "Online purchase"),
 ]
 
 
@@ -66,12 +71,15 @@ class Account:
     An account tile scraped from the BofA overview page.
 
     Name and balance are populated at construction time from the tile element.
-    Transactions are populated later by ScrapeSession.scrape_transactions()
-    and retrieved via get_transactions().
+    The last four digits of the account number are not on the overview page;
+    they are read when a ScrapeSession opens the account. Transactions are
+    populated later by ScrapeSession.scrape_transactions() and retrieved via
+    get_transactions().
     """
 
     __name: str
     __balance: float
+    __last_four: str | None
     __transactions: list[Transaction]
     __element: WebElement
 
@@ -98,15 +106,41 @@ class Account:
             ).get_attribute("textContent")
             or ""
         )
+        self.__last_four = None
         self.__transactions = []
 
     def get_name(self) -> str:
-        """Return the account display name."""
+        """
+        Return the account's nickname as shown on the overview page.
+
+        The nickname can be changed by the account holder and does not
+        include any part of the account number.
+        """
         return self.__name
 
     def get_balance(self) -> float:
         """Return the current account balance."""
         return self.__balance
+
+    def get_last_four(self) -> str | None:
+        """
+        Return the last four digits of the account number.
+
+        None until a ScrapeSession has opened this account, or if the
+        account's page did not show its number.
+        """
+        return self.__last_four
+
+    def set_last_four(self, last_four: str | None) -> None:
+        """
+        Store the last four digits of the account number.
+
+        Called by ScrapeSession when it opens the account's page.
+
+        Args:
+            last_four: The digits, or None if the page did not show them.
+        """
+        self.__last_four = last_four
 
     def get_transactions(self) -> list[Transaction]:
         """

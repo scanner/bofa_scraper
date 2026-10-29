@@ -14,6 +14,7 @@ from bofa_scraper.util import (
     Timeout,
     hash_from_classes,
     is_signed_in_url,
+    last_four_from_masked,
     parse_money,
     wait_until,
 )
@@ -66,6 +67,26 @@ def test_hash_from_classes(class_attr: str, expected: str) -> None:
     THEN:  the 'txn-' prefix is removed, or '' is returned without one
     """
     assert hash_from_classes(class_attr) == expected
+
+
+####################################################################
+#
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("xxxxxxxx1234", "1234"),
+        ("  000011112222\n", "2222"),
+        ("Show full account number", None),
+    ],
+)
+def test_last_four_from_masked(text: str, expected: str | None) -> None:
+    """
+    GIVEN: the account number as shown on an account's page
+    WHEN:  its last four digits are extracted
+    THEN:  the trailing four digits are returned, masked or not, or None
+           when the text does not end in digits
+    """
+    assert last_four_from_masked(text) == expected
 
 
 ####################################################################
