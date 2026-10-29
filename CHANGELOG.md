@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-29
+
 ### Changed
 
 - **Breaking:** `Account.get_name()` is the account's nickname only and holds no part of the account number; the redesigned overview page no longer shows account numbers. Use `get_last_four()` after opening the account
