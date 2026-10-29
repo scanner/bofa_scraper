@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `tools/dump_pages.py` and `tools/digest_page.py` to capture and summarize rendered BofA pages when the site changes
+- `wait_duration` argument to `BofAScraper` -- the longest wait for a page element, default 20 seconds
+
+### Changed
+
+- Page loads, "View more", and the transaction details dialog wait for the elements they need instead of pausing a fixed time, then pause briefly (0.5 to 2 seconds) for the rest of the page to settle
+- `timeout_duration` is now only the pause after each transaction details dialog closes, which paces requests to BofA
 
 ### Fixed
 

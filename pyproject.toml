@@ -30,6 +30,7 @@ dev = [
     "pre-commit",
     "pytest>=9.2.0",
     "pytest-check>=3.0.3",
+    "pytest-mock>=3.17.0",
     "rich",
     "ruff",
 ]

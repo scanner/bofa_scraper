@@ -1,12 +1,22 @@
 #!/usr/bin/env python
 #
-"""Test the parsing helpers in bofa_scraper.util."""
+"""Test the helpers in bofa_scraper.util."""
+
+# system imports
+from unittest.mock import MagicMock
 
 # 3rd party imports
 import pytest
+from pytest_mock import MockerFixture
 
 # Project imports
-from bofa_scraper.util import hash_from_classes, is_signed_in_url, parse_money
+from bofa_scraper.util import (
+    Timeout,
+    hash_from_classes,
+    is_signed_in_url,
+    parse_money,
+    wait_until,
+)
 
 
 ####################################################################
@@ -76,3 +86,33 @@ def test_is_signed_in_url(url: str, expected: bool) -> None:
     THEN:  only the overview paths on the BofA secure host count
     """
     assert is_signed_in_url(url) is expected
+
+
+####################################################################
+#
+@pytest.fixture
+def mock_settle(mocker: MockerFixture) -> MagicMock:
+    """
+    Replace Timeout.settle() with a mock so nothing sleeps.
+
+    Also sets wait_duration to 0 so a condition that never holds times out
+    at once.
+    """
+    mocker.patch.object(Timeout, "wait_duration", 0)
+    return mocker.patch.object(Timeout, "settle")
+
+
+####################################################################
+#
+@pytest.mark.parametrize("holds,settles", [(True, 1), (False, 0)])
+def test_wait_until_settles_only_when_condition_holds(
+    mock_settle: MagicMock, holds: bool, settles: int
+) -> None:
+    """
+    GIVEN: a condition that either holds at once or never holds
+    WHEN:  wait_until() waits on it
+    THEN:  it reports whether the condition held, and pauses to let the
+           page settle only when it did
+    """
+    result = wait_until(object(), lambda d: holds, "a test condition")  # type: ignore[arg-type]
+    assert (result, mock_settle.call_count) == (holds, settles)

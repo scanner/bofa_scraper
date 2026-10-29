@@ -84,6 +84,7 @@ dev = [
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "pytest-check" },
+    { name = "pytest-mock" },
     { name = "rich" },
     { name = "ruff" },
 ]
@@ -99,6 +100,7 @@ dev = [
     { name = "pre-commit" },
     { name = "pytest", specifier = ">=9.2.0" },
     { name = "pytest-check", specifier = ">=3.0.3" },
+    { name = "pytest-mock", specifier = ">=3.17.0" },
     { name = "rich" },
     { name = "ruff" },
 ]
@@ -537,6 +539,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/3b/50/b447f8e19cd9d952d19b8f37b14da9dec51cf31ddcc7af4a0b8478c1f4e1/pytest_check-3.0.3.tar.gz", hash = "sha256:e2aa90b678b6a2e0f42b5fe034051c9867450c99b3e61393070a4e480c32ba57", size = 49020, upload-time = "2026-10-14T14:58:58.724Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fb/87/743a187bbe3d136cfd5972db236de615f50a86c9648f09420b2f86b37757/pytest_check-3.0.3-py3-none-any.whl", hash = "sha256:e4fcfc11fd54a319232553ad9e8e86acd186d5a7f690edb1636309cb39194546", size = 23675, upload-time = "2026-10-14T14:58:57.716Z" },
+]
+
+[[package]]
+name = "pytest-mock"
+version = "3.17.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/97/c2/28b9f5b955ff2bcd4727a6f768e2ca9b586cd7c37b95ea5f7b9b873ac7b3/pytest_mock-3.17.0.tar.gz", hash = "sha256:e36576e0985e01027e999891e7a966c67822d40c89ef1b4c8b6e22737e3590b4", size = 43064, upload-time = "2026-10-17T16:21:42.435Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e8/ea/47fbdc8f37410956fd445720e927589b1e2a47772c5f28109f0ce2fa26d9/pytest_mock-3.17.0-py3-none-any.whl", hash = "sha256:1b82aa4b37137248bd687055e109723debeb07b489de1565297dc9589c5f2d6b", size = 11248, upload-time = "2026-10-17T16:21:41.265Z" },
 ]
 
 [[package]]

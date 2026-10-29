@@ -1,20 +1,33 @@
 import logging
 
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
+from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 from .account import ACCOUNT_ITEM_CSS, Account
 from .account import TRANSACTION_DETAIL_FIELDS as TRANSACTION_DETAIL_FIELDS
 from .scrape_session import ScrapeSession
-from .util import Timeout, is_signed_in_url
+from .util import Timeout, is_signed_in_url, wait_until
 
 logger = logging.getLogger(__name__)
 
-# Seconds to wait for the overview's account list to render.
-_ACCOUNTS_WAIT = 20
+# Elements that show the sign-in form was answered with a 2FA challenge.
+_2FA_LOCATORS = [
+    (By.ID, "btnARContinue"),
+    (By.CLASS_NAME, "authcode"),
+    (By.ID, "authenticationCode"),
+]
+
+
+########################################################################
+#
+def _signed_in_or_2fa(driver: WebDriver) -> bool:
+    """Return True once the browser shows the overview or a 2FA step."""
+    return is_signed_in_url(driver.current_url) or any(
+        driver.find_elements(*loc) for loc in _2FA_LOCATORS
+    )
 
 
 ########################################################################
@@ -55,6 +68,7 @@ class BofAScraper:
         timeout_duration: float = 5,
         verbose: bool = True,
         headless: bool = True,
+        wait_duration: float = 20,
     ):
         """
         Initialize the scraper and open a browser window on bankofamerica.com.
@@ -62,17 +76,22 @@ class BofAScraper:
         Args:
             online_id:        BofA Online ID (username).
             passcode:         BofA passcode (password).
-            timeout_duration: Seconds to wait after each page action. Increase
-                              this on slow connections. Defaults to 5.
+            timeout_duration: Seconds to pause after each transaction details
+                              dialog closes, to pace requests to BofA.
+                              Defaults to 5.
             verbose:          When True, logs progress messages to stdout.
                               Defaults to True.
             headless:         When True, the browser runs invisibly. Set to
                               False to watch or debug the session interactively.
                               Defaults to True.
+            wait_duration:    Longest wait, in seconds, for a page to show the
+                              element the next step needs. Increase this on
+                              slow connections. Defaults to 20.
         """
         self.creds["id"] = online_id
         self.creds["passcode"] = passcode
         Timeout.set_duration(timeout_duration)
+        Timeout.set_wait_duration(wait_duration)
 
         pkg_logger = logging.getLogger("bofa_scraper")
         if verbose and not pkg_logger.handlers:
@@ -88,7 +107,11 @@ class BofAScraper:
         self.driver = webdriver.Firefox(options=options)
         self.driver.set_window_size(1280, 972)
         self.driver.get("https://www.bankofamerica.com/")
-        Timeout.timeout()
+        wait_until(
+            self.driver,
+            EC.presence_of_element_located((By.ID, "oid")),
+            "the sign-in form",
+        )
         logger.info("Initialized web driver")
 
     ####################################################################
@@ -134,17 +157,13 @@ class BofAScraper:
         if not self.logged_in:
             logger.info("Not signed in")
         else:
-            try:
-                WebDriverWait(self.driver, _ACCOUNTS_WAIT).until(
-                    EC.presence_of_element_located(
-                        (By.CSS_SELECTOR, ACCOUNT_ITEM_CSS)
-                    )
-                )
-            except TimeoutException:
-                logger.warning(
-                    "No account tiles appeared within %d seconds",
-                    _ACCOUNTS_WAIT,
-                )
+            wait_until(
+                self.driver,
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, ACCOUNT_ITEM_CSS)
+                ),
+                "the account tiles",
+            )
             i = 0
             for account_element in self.driver.find_elements(
                 By.CSS_SELECTOR, ACCOUNT_ITEM_CSS
@@ -176,22 +195,28 @@ class BofAScraper:
             self.creds["passcode"]
         )
         self.driver.find_element(By.ID, "secure-signin-submit").click()
-        Timeout.timeout()
+        wait_until(self.driver, _signed_in_or_2fa, "the page after sign-in")
 
         # Detect 2FA by element presence rather than URL, since the redirect
         # URL has changed over time.
-        try:
-            self.driver.find_element(By.ID, "btnARContinue")
-            needs_2fa = True
-        except NoSuchElementException:
-            url = self.driver.current_url
-            needs_2fa = "signOnSuccessRedirect" in url or "auth/signon" in url
+        url = self.driver.current_url
+        needs_2fa = (
+            any(self.driver.find_elements(*loc) for loc in _2FA_LOCATORS)
+            or "signOnSuccessRedirect" in url
+            or "auth/signon" in url
+        )
 
         if needs_2fa:
             logger.info("2fa required")
             try:
                 self.driver.find_element(By.ID, "btnARContinue").click()
-                Timeout.timeout()
+                wait_until(
+                    self.driver,
+                    lambda d: any(
+                        d.find_elements(*loc) for loc in _2FA_LOCATORS[1:]
+                    ),
+                    "the 2FA code field",
+                )
             except NoSuchElementException:
                 pass
             print("input 2fa code: ")
@@ -213,7 +238,11 @@ class BofAScraper:
                 self.driver.find_element(By.ID, "continue-auth-number").click()
             except NoSuchElementException:
                 pass
-            Timeout.timeout()
+            wait_until(
+                self.driver,
+                lambda d: is_signed_in_url(d.current_url),
+                "the accounts overview after 2FA",
+            )
 
         if is_signed_in_url(self.driver.current_url):
             logger.info("Sign in success!")
@@ -250,6 +279,10 @@ class BofAScraper:
                 if el.is_displayed():
                     logger.info("Dismissing dialog via: %s", xpath)
                     el.click()
-                    Timeout.timeout()
+                    wait_until(
+                        self.driver,
+                        EC.invisibility_of_element(el),
+                        "the dialog to close",
+                    )
                     return True
         return False

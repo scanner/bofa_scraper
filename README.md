@@ -40,7 +40,8 @@ from bofa_scraper import BofAScraper
 scraper = BofAScraper(
     'YOUR_BankOfAmerica_ONLINE_ID',
     'YOUR_BankOfAmerica_PASSCODE',
-    timeout_duration=5,  # seconds to wait for page loads, defaults to 5
+    wait_duration=20,    # longest wait for a page element, defaults to 20
+    timeout_duration=5,  # pause after each transaction details dialog, defaults to 5
     headless=True,       # run browser invisibly, defaults to True
     verbose=True,        # log progress to stdout, defaults to True
 )
