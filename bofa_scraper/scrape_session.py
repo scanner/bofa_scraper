@@ -6,9 +6,10 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
+from selenium.webdriver.support import expected_conditions as EC
 
-from .account import Account, Transaction
-from .util import Timeout
+from .account import ACCOUNT_LINK_CSS, Account, Transaction
+from .util import Timeout, hash_from_classes, parse_money, wait_until
 
 # Maps lowercased label text from the Transaction details dialog to the
 # canonical key returned in the dict from get_transaction_details(). Labels
@@ -27,6 +28,12 @@ _LABEL_TO_KEY: dict[str, str] = {
     "virtual card number": "virtual_card_number",
     "phone number": "phone_number",
 }
+
+# The transaction table on an account's activity page.
+_ACTIVITY_TABLE_CSS = "table#txn-activity-table"
+
+# The dialog that holds the transaction details content.
+_TXN_DIALOG_XPATH = '//*[@role="dialog"][.//*[@id="transaction-details-modal"]]'
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +74,7 @@ class ScrapeSession:
         )
         url = (
             self.account.get_element()
-            .find_element(By.TAG_NAME, "a")
+            .find_element(By.CSS_SELECTOR, ACCOUNT_LINK_CSS)
             .get_attribute("href")
         )
         if url is None:
@@ -77,7 +84,13 @@ class ScrapeSession:
         self.driver.execute_script("window.open()")
         self.driver.switch_to.window(self.driver.window_handles[1])
         self.driver.get(url)
-        Timeout.timeout()
+        wait_until(
+            self.driver,
+            EC.presence_of_element_located(
+                (By.CSS_SELECTOR, _ACTIVITY_TABLE_CSS)
+            ),
+            "the activity table",
+        )
         self.dismiss_dialog()
         logger.info("Tab opened for account %s", account.get_name())
 
@@ -106,7 +119,11 @@ class ScrapeSession:
                 if el.is_displayed():
                     logger.info("Dismissing dialog via: %s", xpath)
                     el.click()
-                    Timeout.timeout()
+                    wait_until(
+                        self.driver,
+                        EC.invisibility_of_element(el),
+                        "the dialog to close",
+                    )
                     return True
         return False
 
@@ -164,10 +181,8 @@ class ScrapeSession:
         row: WebElement
         for row in self.driver.find_elements(By.CLASS_NAME, "activity-row"):
             transaction = Transaction()
-            transaction.amount = float(
-                row.find_element(By.CLASS_NAME, "amount-cell")
-                .text.replace(",", "")
-                .replace("$", "")
+            transaction.amount = parse_money(
+                row.find_element(By.CLASS_NAME, "amount-cell").text
             )
             transaction.date = row.find_element(By.CLASS_NAME, "date-cell").text
             transaction.desc = row.find_element(
@@ -183,21 +198,11 @@ class ScrapeSession:
                 )
                 transaction.has_details = True
             else:
-                # Pending/processing rows carry the hash in a txn-<hash> CSS
-                # class on the <tr> instead of a data attribute.
-                classes = (row.get_attribute("class") or "").split()
-                transaction.txn_hash = next(
-                    (
-                        c.removeprefix("txn-")
-                        for c in classes
-                        if c.startswith("txn-")
-                    ),
-                    "",
+                transaction.txn_hash = hash_from_classes(
+                    row.get_attribute("class") or ""
                 )
-            transaction.running_balance = float(
-                row.find_element(By.CLASS_NAME, "avail-balance-cell")
-                .text.replace(",", "")
-                .replace("$", "")
+            transaction.running_balance = parse_money(
+                row.find_element(By.CLASS_NAME, "avail-balance-cell").text
             )
 
             out.append(transaction)
@@ -212,7 +217,7 @@ class ScrapeSession:
     #
     def load_more_transactions(self) -> "ScrapeSession":
         """
-        Click the 'View more transactions' button and wait for the page reload.
+        Click the 'View more transactions' button and wait for more rows.
 
         Call before scrape_transactions() to include older history beyond what
         BofA initially renders. Can be called multiple times.
@@ -224,11 +229,18 @@ class ScrapeSession:
             "Loading more transactions in account %s...",
             self.account.get_name(),
         )
+        before = len(self.driver.find_elements(By.CLASS_NAME, "activity-row"))
         view_more = self.driver.find_element(
             By.CLASS_NAME, "view-more-transactions"
         )
         self.driver.execute_script("arguments[0].click();", view_more)
-        Timeout.timeout()
+        wait_until(
+            self.driver,
+            lambda d: (
+                len(d.find_elements(By.CLASS_NAME, "activity-row")) > before
+            ),
+            "more transaction rows",
+        )
         logger.info(
             "Loaded more transactions in account %s", self.account.get_name()
         )
@@ -274,10 +286,9 @@ class ScrapeSession:
         Fetch structured details for a single posted transaction.
 
         Opens the transaction's View/Edit dialog, extracts each label/value
-        pair, then closes the dialog. The caller is responsible for pacing
-        requests; Timeout.timeout() runs after the dialog closes, but calling
-        this in a tight loop over many transactions may trigger BofA
-        rate-limiting.
+        pair, then closes the dialog. It then pauses for timeout_duration
+        seconds to pace requests; calling this in a tight loop over many
+        transactions with a short pause may trigger BofA rate-limiting.
 
         Only posted transactions expose a View/Edit link. Pending and
         processing transactions have has_details=False and return None.
@@ -350,23 +361,30 @@ class ScrapeSession:
             return False
         # JavaScript click avoids any scroll-into-view requirement.
         self.driver.execute_script("arguments[0].click();", links[0])
-        Timeout.timeout()
+        wait_until(
+            self.driver,
+            EC.visibility_of_element_located((By.XPATH, _TXN_DIALOG_XPATH)),
+            "the transaction details dialog",
+        )
         return True
 
     def _find_transaction_dialog(self) -> WebElement | None:
         """
         Locate the visible transaction details modal container in the DOM.
 
-        Tries role='dialog' first (most reliable), then searches for a heading
-        whose text contains 'Transaction details' and walks up to its nearest
-        modal-like ancestor.
+        Tries the role='dialog' element that holds the transaction details
+        content first, then any visible role='dialog', then a heading whose
+        text contains 'Transaction details', walking up to its nearest
+        modal-like ancestor. The page holds other dialogs too, such as the
+        session-timeout warning.
 
         Returns:
             The dialog WebElement, or None if it cannot be found.
         """
-        for el in self.driver.find_elements(By.CSS_SELECTOR, '[role="dialog"]'):
-            if el.is_displayed():
-                return el
+        for xpath in (_TXN_DIALOG_XPATH, '//*[@role="dialog"]'):
+            for el in self.driver.find_elements(By.XPATH, xpath):
+                if el.is_displayed():
+                    return el
 
         # Heading-based fallback for pages that omit role="dialog".
         for tag in ("h2", "h3", "h4"):
@@ -393,24 +411,37 @@ class ScrapeSession:
         Close the transaction details modal.
 
         Tries common close-button selectors in order, then falls back to
-        Escape. Logs a warning if no button is found and Escape is used.
+        Escape, and waits for the dialog to disappear. Logs a warning if no
+        button is found and Escape is used.
         """
         xpaths = [
+            f'{_TXN_DIALOG_XPATH}//button[contains(@class,"spa-ui-layer-close")]',
             '//button[@aria-label="Close"]',
             '//button[@aria-label="close"]',
             '//button[contains(@class,"close")]',
             '//*[contains(@class,"close-button")]',
         ]
-        for xpath in xpaths:
-            for el in self.driver.find_elements(By.XPATH, xpath):
-                if el.is_displayed():
-                    el.click()
-                    return
-
-        logger.warning(
-            "No close button found for transaction dialog; sending Escape"
+        button = next(
+            (
+                el
+                for xpath in xpaths
+                for el in self.driver.find_elements(By.XPATH, xpath)
+                if el.is_displayed()
+            ),
+            None,
         )
-        ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+        if button is not None:
+            button.click()
+        else:
+            logger.warning(
+                "No close button found for transaction dialog; sending Escape"
+            )
+            ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+        wait_until(
+            self.driver,
+            EC.invisibility_of_element_located((By.XPATH, _TXN_DIALOG_XPATH)),
+            "the transaction details dialog to close",
+        )
 
     def _extract_dialog_fields(self, dialog: WebElement) -> dict[str, str]:
         """
@@ -496,7 +527,8 @@ class ScrapeSession:
         )
         return {"_raw": dialog_text.strip()}
 
-    def _fill_from_dialog_text(self, result: dict[str, str], text: str) -> None:
+    @staticmethod
+    def _fill_from_dialog_text(result: dict[str, str], text: str) -> None:
         """
         Fill in any known fields still absent from result using line-by-line text.
 
@@ -532,9 +564,8 @@ class ScrapeSession:
             if key not in result:
                 result[key] = candidate
 
-    def _store_field(
-        self, result: dict[str, str], label: str, value: str
-    ) -> None:
+    @staticmethod
+    def _store_field(result: dict[str, str], label: str, value: str) -> None:
         """
         Normalize a label/value pair and insert it into result.
 

@@ -1,6 +1,17 @@
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
+from .util import parse_money
+
+# One tile per account on the accounts overview page.
+ACCOUNT_ITEM_CSS = "div.account-item"
+# The account's name and the link to its activity page. Select it by class:
+# a tile can also hold other links, such as an offer pop-up.
+ACCOUNT_LINK_CSS = "a.account-link"
+# The balance is the last span; an earlier visually hidden span holds the
+# label 'Current Balance'.
+ACCOUNT_BALANCE_CSS = "div.total > span:last-of-type"
+
 # Ordered list of (key, label) pairs for all fields that may appear in the
 # dict returned by ScrapeSession.get_transaction_details(). The order matches
 # the natural top-to-bottom sequence of the BofA dialog. Fields absent from a
@@ -69,24 +80,23 @@ class Account:
         Build an Account from a single overview-page account tile element.
 
         Args:
-            account_element: The AccountItem WebElement from the overview page.
+            account_element: The account tile WebElement (ACCOUNT_ITEM_CSS)
+                             from the overview page.
         """
         self.__element = account_element
+        # textContent rather than innerHTML: the name is wrapped in empty
+        # framework comments.
         self.__name = (
-            self.__element.find_element(By.TAG_NAME, "a").get_attribute(
-                "innerHTML"
-            )
+            self.__element.find_element(
+                By.CSS_SELECTOR, ACCOUNT_LINK_CSS
+            ).get_attribute("textContent")
             or ""
-        )
-        self.__balance = float(
-            (
-                account_element.find_element(
-                    By.CLASS_NAME, "balanceValue"
-                ).get_attribute("innerHTML")
-                or ""
-            )
-            .replace("$", "")
-            .replace(",", "")
+        ).strip()
+        self.__balance = parse_money(
+            account_element.find_element(
+                By.CSS_SELECTOR, ACCOUNT_BALANCE_CSS
+            ).get_attribute("textContent")
+            or ""
         )
         self.__transactions = []
 

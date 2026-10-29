@@ -7,3 +7,5 @@ test.py
 .mypy_cache/
 .ruff_cache/
 .ruff_formatted
+/analysis/*
+!/analysis/README.md
