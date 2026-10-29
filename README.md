@@ -52,18 +52,27 @@ scraper.login()  # handles 2FA interactively if required
 Fetch accounts and scrape transactions:
 ```python
 # get_accounts() returns one Account per tile on the overview page.
-# Balance is pre-populated; transactions are not fetched until you open
-# a scraping session.
+# Name and balance are pre-populated; transactions are not fetched until
+# you open a scraping session.
 accounts = scraper.get_accounts()
-accounts[0].get_name()     # str; account display name
-accounts[0].get_balance()  # float; current balance
+accounts[0].get_name()       # str; the account's nickname. Holds no part
+                             #      of the account number.
+accounts[0].get_balance()    # float; current balance
+accounts[0].get_last_four()  # None until the account has been opened
 
-# open_account() opens a new browser tab for the account's detail page.
+# open_account() opens a new browser tab for the account's detail page and
+# reads the last four digits of the account number there. The overview
+# page does not show them, so to pick accounts by number, open each one
+# and check before scraping it.
+session = scraper.open_account(accounts[0])
+session.get_last_four()      # str | None; e.g. "1234". Also stored on the
+                             #      Account: accounts[0].get_last_four()
+
 # scrape_transactions() reads all visible rows and stores them on the
 # Account object.  Call load_more_transactions() first to load older rows.
 # close() closes the detail tab and returns focus to the overview tab.
 (
-    scraper.open_account(accounts[0])
+    session
         .scrape_transactions()
         .load_more_transactions()   # click "View more transactions"
         .scrape_transactions()      # re-scrape to include newly loaded rows
@@ -140,6 +149,8 @@ Fields returned by `get_transaction_details()`:
 | `transaction_category`   | `'Groceries : Groceries'`                              | User-editable                   |
 | `virtual_card_number`    | `'XXXX-XXXX-XXXX-1439'`                                | Virtual Card transactions only  |
 | `phone_number`           | `'XXX-XXX-1439'`                                       | Masked; not always present      |
+| `purchaser`              | `'JANE DOE'`                                           | Cardholder; not always present  |
+| `online_purchase`        | `'Y'`                                                  | Online purchases only           |
 
 Fields not present in a particular transaction's dialog are omitted from the
 returned dict. Always use `dict.get()` rather than direct indexing.

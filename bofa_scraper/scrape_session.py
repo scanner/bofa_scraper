@@ -8,8 +8,19 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 
-from .account import ACCOUNT_LINK_CSS, Account, Transaction
-from .util import Timeout, hash_from_classes, parse_money, wait_until
+from .account import (
+    ACCOUNT_LINK_CSS,
+    ACCOUNT_NUMBER_CSS,
+    Account,
+    Transaction,
+)
+from .util import (
+    Timeout,
+    hash_from_classes,
+    last_four_from_masked,
+    parse_money,
+    wait_until,
+)
 
 # Maps lowercased label text from the Transaction details dialog to the
 # canonical key returned in the dict from get_transaction_details(). Labels
@@ -27,6 +38,8 @@ _LABEL_TO_KEY: dict[str, str] = {
     "transaction category": "transaction_category",
     "virtual card number": "virtual_card_number",
     "phone number": "phone_number",
+    "purchaser": "purchaser",
+    "online purchase": "online_purchase",
 }
 
 # The transaction table on an account's activity page.
@@ -57,6 +70,9 @@ class ScrapeSession:
     def __init__(self, driver: webdriver.Firefox, account: Account):
         """
         Open a new browser tab and navigate to the account detail page.
+
+        Reads the last four digits of the account number from the page and
+        stores them on the account; see get_last_four().
 
         Args:
             driver: The shared Firefox WebDriver instance.
@@ -92,7 +108,41 @@ class ScrapeSession:
             "the activity table",
         )
         self.dismiss_dialog()
+        self.account.set_last_four(self._read_last_four())
         logger.info("Tab opened for account %s", account.get_name())
+
+    ####################################################################
+    #
+    def get_last_four(self) -> str | None:
+        """
+        Return the last four digits of this account's number.
+
+        Returns:
+            The digits read when the session opened, or None if the
+            account's page did not show its number.
+        """
+        return self.account.get_last_four()
+
+    ####################################################################
+    #
+    def _read_last_four(self) -> str | None:
+        """Read the last four digits of the account number from the page."""
+        elements = self.driver.find_elements(
+            By.CSS_SELECTOR, ACCOUNT_NUMBER_CSS
+        )
+        last_four = (
+            last_four_from_masked(
+                elements[0].get_attribute("textContent") or ""
+            )
+            if elements
+            else None
+        )
+        if last_four is None:
+            logger.warning(
+                "No account number found on the page for account %s",
+                self.account.get_name(),
+            )
+        return last_four
 
     ####################################################################
     #
@@ -316,6 +366,8 @@ class ScrapeSession:
                 transaction_category    'Groceries : Groceries'
                 virtual_card_number     masked card number (Virtual Card only)
                 phone_number            masked phone number
+                purchaser               cardholder name on the purchase
+                online_purchase         'Y' for online purchases
 
             Fields absent from the dialog are omitted. Unrecognized labels are
             included under label.lower().replace(' ', '_'). The key '_raw' is
