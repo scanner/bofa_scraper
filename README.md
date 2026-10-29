@@ -161,6 +161,34 @@ scraper.quit()  # closes the browser process
 ```
 
 
+# Development
+
+```
+make test      # run the test suite
+make lint      # install the pre-commit hook and run all checks
+```
+
+The tests use only synthetic inputs built from the package's own constants;
+they do not contact Bank of America.
+
+## When the site changes
+
+`tools/dump_pages.py` signs in with a visible browser and saves the rendered
+page, a screenshot, and a digest at each step of the usual flow (overview,
+account activity, "View more", transaction details). Pass `--manual` to
+capture pages you navigate to yourself.
+
+```
+uv run tools/dump_pages.py
+```
+
+`tools/digest_page.py` turns a saved page into a short Markdown summary of its
+dialogs, links, buttons, repeated rows, and structure, for comparing against
+the selectors the scraper uses. `dump_pages.py` runs it on each capture.
+
+Captures are written under `analysis/`, which is not stored in git.
+
+
 # Security & Licensing
 This project is licensed under the GNU General Public License 3.0 (GPLv3).
 

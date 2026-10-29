@@ -8,7 +8,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 
 from .account import ACCOUNT_LINK_CSS, Account, Transaction
-from .util import Timeout
+from .util import Timeout, hash_from_classes, parse_money
 
 # Maps lowercased label text from the Transaction details dialog to the
 # canonical key returned in the dict from get_transaction_details(). Labels
@@ -167,10 +167,8 @@ class ScrapeSession:
         row: WebElement
         for row in self.driver.find_elements(By.CLASS_NAME, "activity-row"):
             transaction = Transaction()
-            transaction.amount = float(
-                row.find_element(By.CLASS_NAME, "amount-cell")
-                .text.replace(",", "")
-                .replace("$", "")
+            transaction.amount = parse_money(
+                row.find_element(By.CLASS_NAME, "amount-cell").text
             )
             transaction.date = row.find_element(By.CLASS_NAME, "date-cell").text
             transaction.desc = row.find_element(
@@ -186,21 +184,11 @@ class ScrapeSession:
                 )
                 transaction.has_details = True
             else:
-                # Pending/processing rows carry the hash in a txn-<hash> CSS
-                # class on the <tr> instead of a data attribute.
-                classes = (row.get_attribute("class") or "").split()
-                transaction.txn_hash = next(
-                    (
-                        c.removeprefix("txn-")
-                        for c in classes
-                        if c.startswith("txn-")
-                    ),
-                    "",
+                transaction.txn_hash = hash_from_classes(
+                    row.get_attribute("class") or ""
                 )
-            transaction.running_balance = float(
-                row.find_element(By.CLASS_NAME, "avail-balance-cell")
-                .text.replace(",", "")
-                .replace("$", "")
+            transaction.running_balance = parse_money(
+                row.find_element(By.CLASS_NAME, "avail-balance-cell").text
             )
 
             out.append(transaction)
@@ -503,7 +491,8 @@ class ScrapeSession:
         )
         return {"_raw": dialog_text.strip()}
 
-    def _fill_from_dialog_text(self, result: dict[str, str], text: str) -> None:
+    @staticmethod
+    def _fill_from_dialog_text(result: dict[str, str], text: str) -> None:
         """
         Fill in any known fields still absent from result using line-by-line text.
 
@@ -539,9 +528,8 @@ class ScrapeSession:
             if key not in result:
                 result[key] = candidate
 
-    def _store_field(
-        self, result: dict[str, str], label: str, value: str
-    ) -> None:
+    @staticmethod
+    def _store_field(result: dict[str, str], label: str, value: str) -> None:
         """
         Normalize a label/value pair and insert it into result.
 

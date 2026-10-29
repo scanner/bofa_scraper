@@ -1,5 +1,4 @@
 import logging
-from urllib.parse import urlsplit
 
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
@@ -10,14 +9,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from .account import ACCOUNT_ITEM_CSS, Account
 from .account import TRANSACTION_DETAIL_FIELDS as TRANSACTION_DETAIL_FIELDS
 from .scrape_session import ScrapeSession
-from .util import Timeout
+from .util import Timeout, is_signed_in_url
 
 logger = logging.getLogger(__name__)
-
-# Paths BofA lands on after a successful sign-in: the accounts overview
-# ('/accounts-home/' since late 2026, '/myaccounts/' before that).
-_SIGNED_IN_HOST = "secure.bankofamerica.com"
-_SIGNED_IN_PATHS = ("/accounts-home/", "/myaccounts/")
 
 # Seconds to wait for the overview's account list to render.
 _ACCOUNTS_WAIT = 20
@@ -221,10 +215,7 @@ class BofAScraper:
                 pass
             Timeout.timeout()
 
-        landing = urlsplit(self.driver.current_url)
-        if landing.netloc == _SIGNED_IN_HOST and landing.path.startswith(
-            _SIGNED_IN_PATHS
-        ):
+        if is_signed_in_url(self.driver.current_url):
             logger.info("Sign in success!")
             self.logged_in = True
             self._dismiss_dialog()

@@ -28,6 +28,8 @@ dev = [
     "lxml>=6.1.3",
     "mypy",
     "pre-commit",
+    "pytest>=9.2.0",
+    "pytest-check>=3.0.3",
     "rich",
     "ruff",
 ]
@@ -74,3 +76,7 @@ check_untyped_defs = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tools"]

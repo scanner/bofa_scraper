@@ -1,6 +1,8 @@
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
+from .util import parse_money
+
 # One tile per account on the accounts overview page.
 ACCOUNT_ITEM_CSS = "div.account-item"
 # The account's name and the link to its activity page. Select it by class:
@@ -90,16 +92,11 @@ class Account:
             ).get_attribute("textContent")
             or ""
         ).strip()
-        self.__balance = float(
-            (
-                account_element.find_element(
-                    By.CSS_SELECTOR, ACCOUNT_BALANCE_CSS
-                ).get_attribute("textContent")
-                or ""
-            )
-            .strip()
-            .replace("$", "")
-            .replace(",", "")
+        self.__balance = parse_money(
+            account_element.find_element(
+                By.CSS_SELECTOR, ACCOUNT_BALANCE_CSS
+            ).get_attribute("textContent")
+            or ""
         )
         self.__transactions = []
 
