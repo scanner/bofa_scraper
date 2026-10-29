@@ -18,7 +18,7 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        entry: uv run mypy --install-types --non-interactive --explicit-package-bases ./bofa_scraper/
+        entry: uv run mypy --install-types --non-interactive --explicit-package-bases ./bofa_scraper/ ./tools/
         language: system
         types: [python]
         pass_filenames: false

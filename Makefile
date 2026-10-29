@@ -1,26 +1,33 @@
 # -*- Mode: Makefile -*-
 ROOT_DIR := $(shell git rev-parse --show-toplevel)
 
-PYTHON_VERSION := 3.13
+PYTHON_VERSION := $(shell cat $(ROOT_DIR)/.python-version)
 UV_RUN := uv run
 
 .PHONY: clean lint mypy ruff-format formatting squeegee help uv-sync uv-lock uv-add uv-add-dev uv-upgrade
 
-.git/hooks/pre-commit .git/hooks/pre-push: .venv
-	@$(UV_RUN) pre-commit install
-	@echo "pre-commit hooks installed!"
-	@touch .git/hooks/pre-commit .git/hooks/pre-push
+# The hook runs pre-commit through `uv run`, so it uses the `.venv` of
+# whichever machine it runs on; `.git/hooks` is shared by every machine
+# that syncs the checkout, so it holds no interpreter path.
+#
+.git/hooks/pre-commit: Makefile
+	@mkdir -p $(@D)
+	@printf '%s\n' '#!/usr/bin/env bash' \
+	  'exec uv run --quiet pre-commit hook-impl --config=.pre-commit-config.yaml --hook-type=pre-commit --hook-dir "$$(cd "$$(dirname "$$0")" && pwd)" -- "$$@"' > $@
+	@chmod +x $@
+	@echo "pre-commit hook installed"
 
-$(ROOT_DIR)/.venv: pyproject.toml uv.lock
+$(ROOT_DIR)/.venv: pyproject.toml uv.lock $(ROOT_DIR)/.python-version
 	@uv sync
 	@touch $@
 
 .venv:: $(ROOT_DIR)/.venv
 
-PY_FILES=$(shell find $(ROOT_DIR)/bofa_scraper/ -type f -name '*.py' 2>/dev/null)
+PY_DIRS := $(ROOT_DIR)/bofa_scraper/ $(ROOT_DIR)/tools/
+PY_FILES=$(shell find $(PY_DIRS) -type f -name '*.py' 2>/dev/null)
 
 .ruff_formatted: $(PY_FILES) .venv
-	@$(UV_RUN) ruff format $(ROOT_DIR)/bofa_scraper/
+	@$(UV_RUN) ruff format $(PY_DIRS)
 	@touch .ruff_formatted
 
 ruff-format: .ruff_formatted  ## Run `ruff format` over all Python files
@@ -28,13 +35,13 @@ ruff-format: .ruff_formatted  ## Run `ruff format` over all Python files
 formatting: ruff-format  ## Run formatters over all files in project
 
 squeegee: .venv ruff-format mypy  ## Manually run ruff format, mypy, and ruff check over all project files
-	@$(UV_RUN) ruff check $(ROOT_DIR)/bofa_scraper/
+	@$(UV_RUN) ruff check $(PY_DIRS)
 
 lint: .venv .git/hooks/pre-commit  ## Run all pre-commit hooks
 	@$(UV_RUN) pre-commit run -a
 
-mypy: .venv  ## Run `mypy` over `bofa_scraper/`
-	@$(UV_RUN) mypy --install-types --non-interactive --explicit-package-bases ./bofa_scraper/
+mypy: .venv  ## Run `mypy` over `bofa_scraper/` and `tools/`
+	@$(UV_RUN) mypy --install-types --non-interactive --explicit-package-bases ./bofa_scraper/ ./tools/
 
 uv-sync: .venv  ## Sync .venv with uv.lock (run after updating pyproject.toml or pulling changes)
 	@uv sync
