@@ -1,7 +1,11 @@
 import logging
+from collections.abc import Callable
 
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import (
+    NoSuchElementException,
+    WebDriverException,
+)
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -49,6 +53,99 @@ _ACTIVITY_TABLE_CSS = "table#txn-activity-table"
 _TXN_DIALOG_XPATH = '//*[@role="dialog"][.//*[@id="transaction-details-modal"]]'
 
 logger = logging.getLogger(__name__)
+
+
+########################################################################
+########################################################################
+#
+class RowParseError(ValueError):
+    """
+    A money cell in a transaction row does not hold an amount.
+
+    The message names the row and cell and holds only that cell's values.
+    'row_html' holds the whole row, including its description and amounts, and
+    is left out of the message so that logging the error does not record it.
+
+    Attributes:
+        row_number:   The row's position on the page, counted from 1.
+        cell:         The CSS class of the cell that failed.
+        text:         The cell's rendered text, as Selenium reports it.
+        text_content: The cell's DOM textContent, which Selenium reports
+                      whether or not the cell is displayed.
+        displayed:    Whether Selenium considers the cell displayed.
+        row_html:     The row's outerHTML.
+
+    'text_content', 'displayed' and 'row_html' are None when they could not be
+    read, as when the page replaced the row after its text was read.
+    """
+
+    ####################################################################
+    #
+    def __init__(
+        self,
+        row_number: int,
+        cell: str,
+        text: str,
+        text_content: str | None,
+        displayed: bool | None,
+        row_html: str | None,
+    ):
+        super().__init__(
+            f"Transaction row {row_number}: cannot read {cell} as an amount "
+            f"(text={text!r}, textContent={text_content!r}, "
+            f"displayed={displayed})"
+        )
+        self.row_number = row_number
+        self.cell = cell
+        self.text = text
+        self.text_content = text_content
+        self.displayed = displayed
+        self.row_html = row_html
+
+
+####################################################################
+#
+def _read_or_none[T](read: Callable[[], T]) -> T | None:
+    """Return the result of a WebDriver read, or None if the read fails."""
+    try:
+        return read()
+    except WebDriverException as e:
+        logger.warning("Could not read a failed row's details: %r", e)
+        return None
+
+
+####################################################################
+#
+def _read_money_cell(row: WebElement, row_number: int, cell: str) -> float:
+    """
+    Read the amount in one money cell of a transaction row.
+
+    Args:
+        row:        The transaction row.
+        row_number: The row's position on the page, counted from 1.
+        cell:       The CSS class of the cell to read.
+
+    Returns:
+        The amount; negative for debits.
+
+    Raises:
+        RowParseError: If the cell does not hold an amount.
+    """
+    element = row.find_element(By.CLASS_NAME, cell)
+    text = element.text
+    try:
+        return parse_money(text)
+    except ValueError as e:
+        raise RowParseError(
+            row_number=row_number,
+            cell=cell,
+            text=text,
+            text_content=_read_or_none(
+                lambda: element.get_attribute("textContent")
+            ),
+            displayed=_read_or_none(element.is_displayed),
+            row_html=_read_or_none(lambda: row.get_attribute("outerHTML")),
+        ) from e
 
 
 ########################################################################
@@ -222,6 +319,10 @@ class ScrapeSession:
 
         Returns:
             self, to allow method chaining.
+
+        Raises:
+            RowParseError: If a row's amount or balance cell does not hold an
+                           amount. No rows are stored on the Account.
         """
         logger.info(
             "Scraping transactions for account %s...", self.account.get_name()
@@ -229,10 +330,12 @@ class ScrapeSession:
         i: int = 0
         out: list[Transaction] = []
         row: WebElement
-        for row in self.driver.find_elements(By.CLASS_NAME, "activity-row"):
+        for row_number, row in enumerate(
+            self.driver.find_elements(By.CLASS_NAME, "activity-row"), start=1
+        ):
             transaction = Transaction()
-            transaction.amount = parse_money(
-                row.find_element(By.CLASS_NAME, "amount-cell").text
+            transaction.amount = _read_money_cell(
+                row, row_number, "amount-cell"
             )
             transaction.date = row.find_element(By.CLASS_NAME, "date-cell").text
             transaction.desc = row.find_element(
@@ -251,8 +354,8 @@ class ScrapeSession:
                 transaction.txn_hash = hash_from_classes(
                     row.get_attribute("class") or ""
                 )
-            transaction.running_balance = parse_money(
-                row.find_element(By.CLASS_NAME, "avail-balance-cell").text
+            transaction.running_balance = _read_money_cell(
+                row, row_number, "avail-balance-cell"
             )
 
             out.append(transaction)

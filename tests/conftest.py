@@ -10,12 +10,41 @@ values. No captured BofA pages or data are used.
 # system imports
 from collections.abc import Callable
 from pathlib import Path
+from unittest.mock import MagicMock
 
 # 3rd party imports
 import pytest
 
 # Project imports
-from bofa_scraper import TRANSACTION_DETAIL_FIELDS
+from bofa_scraper import TRANSACTION_DETAIL_FIELDS, ScrapeSession
+from bofa_scraper.account import Account
+
+
+####################################################################
+#
+@pytest.fixture
+def driver() -> MagicMock:
+    """A mock WebDriver; tests set what its lookups return."""
+    return MagicMock()
+
+
+####################################################################
+#
+@pytest.fixture
+def account() -> MagicMock:
+    """A mock Account."""
+    return MagicMock(spec=Account)
+
+
+####################################################################
+#
+@pytest.fixture
+def session(driver: MagicMock, account: MagicMock) -> ScrapeSession:
+    """A ScrapeSession on the mock driver and account, opening no tab."""
+    s = ScrapeSession.__new__(ScrapeSession)
+    s.driver = driver
+    s.account = account
+    return s
 
 
 ####################################################################

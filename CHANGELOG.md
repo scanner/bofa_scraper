@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tools/check_scrape.py` to check that accounts scrape cleanly and capture the page when one does not
+
+### Changed
+
+- `scrape_transactions()` raises `RowParseError`, a `ValueError`, naming the row and cell when a money cell does not hold an amount
+
 ## [2.0.0] - 2026-10-29
 
 ### Changed

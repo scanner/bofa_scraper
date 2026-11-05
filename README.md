@@ -198,7 +198,18 @@ uv run tools/dump_pages.py
 dialogs, links, buttons, repeated rows, and structure, for comparing against
 the selectors the scraper uses. `dump_pages.py` runs it on each capture.
 
-Captures are written under `analysis/`, which is not stored in git.
+`tools/check_scrape.py` runs the scrape itself on each account: scrape, "View
+more", scrape again. When a scrape fails it saves the page and the failing
+row, scrapes the same page again after a pause to show whether the failure
+was a matter of timing, and moves on to the next account. It reads the same
+credentials as `dump_pages.py`, and `--last-four` limits it to one account.
+
+```
+uv run tools/check_scrape.py --last-four 1234
+```
+
+Captures are written under `analysis/`, which is not stored in git. They hold
+real account data.
 
 
 # Security & Licensing
