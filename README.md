@@ -1,5 +1,7 @@
 # bofa_scraper
 
+[![Build Status](https://drone.apricot.com/api/badges/scanner/bofa_scraper/status.svg)](https://drone.apricot.com/scanner/bofa_scraper)
+
 Bank of America does not currently have a consumer-facing API for requesting
 balance and transaction data. The goal of this project is to make personal
 data accessible to allow for automated budgeting projects.
