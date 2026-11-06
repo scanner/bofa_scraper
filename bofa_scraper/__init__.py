@@ -8,6 +8,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from .account import ACCOUNT_ITEM_CSS, Account
 from .account import TRANSACTION_DETAIL_FIELDS as TRANSACTION_DETAIL_FIELDS
+from .scrape_session import RowParseError as RowParseError
 from .scrape_session import ScrapeSession
 from .util import Timeout, is_signed_in_url, wait_until
 

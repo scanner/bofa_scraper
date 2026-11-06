@@ -12,7 +12,6 @@ from pytest_mock import MockerFixture
 # Project imports
 import bofa_scraper
 from bofa_scraper import BofAScraper, ScrapeSession
-from bofa_scraper.account import Account
 
 
 ####################################################################
@@ -26,29 +25,10 @@ def mock_wait_until(mocker: MockerFixture) -> MagicMock:
 ####################################################################
 #
 @pytest.fixture
-def driver() -> MagicMock:
-    """A mock WebDriver; tests set what its lookups return."""
-    return MagicMock()
-
-
-####################################################################
-#
-@pytest.fixture
 def scraper(driver: MagicMock) -> BofAScraper:
     """A BofAScraper on the mock driver, built without starting Firefox."""
     s = BofAScraper.__new__(BofAScraper)
     s.driver = driver
-    return s
-
-
-####################################################################
-#
-@pytest.fixture
-def session(driver: MagicMock) -> ScrapeSession:
-    """A ScrapeSession on the mock driver with a mock account, opening no tab."""
-    s = ScrapeSession.__new__(ScrapeSession)
-    s.driver = driver
-    s.account = MagicMock(spec=Account)
     return s
 
 
